@@ -1,0 +1,19 @@
+{
+    "choices": [
+        {
+            "value": "National Institute of Technology",
+            "label": "National Institute of Technology",
+            "customProperties": {}
+        },
+        {
+            "value": "Indian Institute of Information Technology",
+            "label": "Indian Institute of Information Technology",
+            "customProperties": {}
+        },
+        {
+            "value": "Government Funded Technical Institutions",
+            "label": "Government Funded Technical Institutions",
+            "customProperties": {}
+        }
+    ]
+}

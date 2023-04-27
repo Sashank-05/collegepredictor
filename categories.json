@@ -1,0 +1,54 @@
+{
+    "choices" : [
+    {
+        "value": "OPEN",
+        "label": "OPEN",
+        "customProperties": {}
+    },
+    {
+        "value": "EWS",
+        "label": "EWS",
+        "customProperties": {}
+    },
+    {
+        "value": "OBC-NCL",
+        "label": "OBC-NCL",
+        "customProperties": {}
+    },
+    {
+        "value": "SC",
+        "label": "SC",
+        "customProperties": {}
+    },
+    {
+        "value": "ST",
+        "label": "ST",
+        "customProperties": {}
+    },
+    {
+        "value": "OBC-NCL (PwD)",
+        "label": "OBC-NCL (PwD)",
+        "customProperties": {}
+    },
+    {
+        "value": "OPEN (PwD)",
+        "label": "OPEN (PwD)",
+        "customProperties": {}
+    },
+    {
+        "value": "EWS (PwD)",
+        "label": "EWS (PwD)",
+        "customProperties": {}
+    },
+    {
+        "value": "SC (PwD)",
+        "label": "SC (PwD)",
+        "customProperties": {}
+    },
+    {
+        "value": "ST (PwD)",
+        "label": "ST (PwD)",
+        "customProperties": {}
+    }
+]
+}

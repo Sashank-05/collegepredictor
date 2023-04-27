@@ -1,0 +1,14 @@
+{
+    "choices" : [
+        {
+            "value" : "Gender-Neutral",
+            "label" : "Gender-Neutral",
+            "customProperties" : {}
+        },
+        {
+            "value":"Female-only (including Supernumerary)",
+            "label":"Female-only (including Supernumerary)",
+            "customProperties" : {}
+        }
+    ]
+}
