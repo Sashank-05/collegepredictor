@@ -96,7 +96,7 @@ class Dropdown(discord.ui.Select):
 
 
 class CollegeView(discord.ui.View):
-    def __init__(self, cmap={}, interactionmsg=None, *, timeout: float | None = 120):
+    def __init__(self, cmap={}, interactionmsg=None, *, timeout: float = 120):
         self.cmap = cmap
         self.interactionmessage = interactionmsg
         super().__init__(timeout=timeout)
