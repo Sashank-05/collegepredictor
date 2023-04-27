@@ -1,3 +1,4 @@
+print("File Started!")
 import asyncio
 import datetime
 import traceback
@@ -10,10 +11,12 @@ from discord import SelectOption, app_commands
 from discord.ext import commands
 from discord.app_commands import Choice
 
+print("Imported libraries!")
+
 TOKEN = "MTA5ODY0NTY5NTk1Njc5NTQzMg.G1qy1g.QdUsTb1CuIxXP3IjCY621H8Rfm4k3ZovCVXeLc"
 bot = discord.ext.commands.AutoShardedBot(
     command_prefix=".,", intents=discord.Intents.all())
-
+print("Bot Created!")
 
 def filter(filterinp):
     colleges = json.load(open("colleges.json", 'r'))
