@@ -1,23 +1,70 @@
-import asyncio
-import datetime
-import traceback
-from typing import Literal, Optional
-from discord.ext.commands import Greedy
-from discord.ext.commands import Context
-import discord
-import json
-from discord import SelectOption, app_commands
-from discord.ext import commands
 from discord.app_commands import Choice
-import Paginator
+from discord.ext import tasks
+from discord.ext import commands
+from discord import SelectOption, app_commands
+import json
+import discord
+from discord.ext.commands import Context
+from discord.ext.commands import Greedy
+from typing import Any, Coroutine, Literal, Optional
+import traceback
+import datetime
+import asyncio
+print("File Started!")
 
-colleges = json.load(open("colleges.json", 'r'))
-branches = json.load(open("branches.json", 'r'))
-map = json.load(open("maps.json", 'r'))
-state = json.load(open("state.json", 'r'))
-type = json.load(open("type.json", 'r'))
-gender = json.load(open("gender.json", 'r'))
-category = json.load(open("categories.json"))
+print("Imported libraries!")
+
+TOKEN = "MTA5ODY0NTY5NTk1Njc5NTQzMg.G1qy1g.QdUsTb1CuIxXP3IjCY621H8Rfm4k3ZovCVXeLc"
+bot = discord.ext.commands.AutoShardedBot(
+    command_prefix=".,", intents=discord.Intents.all())
+print("Bot Created!")
+
+dates = []
+
+
+def filter(filterinp):
+    colleges = json.load(open("colleges.json", 'r'))
+    branches = json.load(open("branches.json", 'r'))
+    map = json.load(open("maps.json", 'r'))
+    state = json.load(open("state.json", 'r'))
+    type = json.load(open("type.json", 'r'))
+    gender = json.load(open("gender.json", 'r'))
+    category = json.load(open("categories.json"))
+    college_list = []
+    if filterinp["type"] is None:
+        filterinp["type"] = ['Indian Institute of Information Technology',
+                             'National Institute of Technology', 'Government Funded Technical Institutions']
+
+    for college in colleges['choice']:
+
+        if college['type'] in filterinp["type"] or filterinp["type"] == None:
+            if college['category'] != filterinp['category']:
+                continue
+            if filterinp["branches"] == None:
+
+                if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                        and college['seat'] == filterinp['gender']:
+
+                    college_list.append(college)
+
+                if college['state'] == filterinp['state'] and college["category"] == "HS":
+                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                            and college['seat'] == filterinp['gender']:
+                        college_list.append(college)
+
+            elif filterinp["branches"]:
+                if college["programLabel"] in filterinp['branches']:
+
+                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                            and college['seat'] == filterinp['gender']:
+
+                        college_list.append(college)
+
+                if college['state'] == filterinp['state'] and college["category"] == "HS":
+                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                            and college['seat'] == filterinp['gender']:
+                        college_list.append(college)
+    return college_list
 
 
 def traceback_maker(err, advance: bool = True):
@@ -28,153 +75,238 @@ def traceback_maker(err, advance: bool = True):
     return error if advance else f"{type(err).__name__}: {err}"
 
 
-test_input = {
-    "rank": 500,
-    "type": type['choices'][0]['value'],  # => NIT
-    "gender": gender['choices'][0]['value'],  # => gender-neutral
-    "state": state['choices'][0]['value'],  # => AP
-    "category": category['choices'][0]['value'],  # => OPEN
-    "branches": [branches['choices'][0]["value"]]  # => aerospace
-}
+class Dropdown(discord.ui.Select):
+    def __init__(self, cmap):
 
-TOKEN = "MTA5ODY0NTY5NTk1Njc5NTQzMg.G1qy1g.QdUsTb1CuIxXP3IjCY621H8Rfm4k3ZovCVXeLc"
+        # Set the options that will be presented inside the dropdown
 
+        options = []
+        for college in cmap.keys():
+            options.append(SelectOption(label=college))
+        self.cmap = cmap
 
-def filter(filterinp):
-    college_list = []
-    for college in colleges['choice']:
+        super().__init__(placeholder='Available Colleges',
+                         min_values=1, max_values=1, options=options)
 
-        if college['type'] == filterinp["type"] or filterinp["type"] == None:
-            if college['category'] != filterinp['category']:
-                continue
-            if filterinp["branches"] == None:
-
-                if (filterinp['rank'] < college['openingRank'] or filterinp['rank'] > college["openingRank"] and college["closingRank"]) \
-                        and college['seat'] == filterinp['gender']:
-
-                    college_list.append(college)
-
-                if college['state'] == filterinp['state'] and college["category"] == "HS":
-                    if (filterinp['rank'] < college['openingRank'] or filterinp['rank'] > college["openingRank"] and college["closingRank"]) \
-                            and college['seat'] == filterinp['gender']:
-                        college_list.append(college)
-
-            elif filterinp["branches"]:
-                if college["programLabel"] in filterinp['branches']:
-
-                    if (filterinp['rank'] < college['openingRank'] or filterinp['rank'] > college["openingRank"] and college["closingRank"]) \
-                            and college['seat'] == filterinp['gender']:
-                        college_list.append(college)
-
-                    if college['state'] == filterinp['state'] and college["category"] == "HS":
-                        if (filterinp['rank'] < college['openingRank'] or filterinp['rank'] > college["openingRank"] and college["closingRank"]) \
-                                and college['seat'] == filterinp['gender']:
-                            college_list.append(college)
-    return college_list
+    async def callback(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title=self.values[0])
+        for avail_branch in self.cmap.get(self.values[0]):
+            print(avail_branch)
+            embed.add_field(
+                name=avail_branch[0], value=f"Cutoff : {avail_branch[1]}", inline=False)
+      #  await interaction.delete_original_response()
+        await interaction.response.edit_message(content=f'<@{interaction.user.id}>', embed=embed)
 
 
-button_message = None
+class CollegeView(discord.ui.View):
+    def __init__(self, cmap={}, interactionmsg=None, *, timeout: float = 120):
+        self.cmap = cmap
+        self.interactionmessage = interactionmsg
+        super().__init__(timeout=timeout)
+        self.add_item(Dropdown(cmap=self.cmap))
 
-# print(filter(test_input))
+    @discord.ui.button(label="Delete Message", style=discord.ButtonStyle.danger)
+    async def dela(self, interaction: discord.Interaction, button: discord.ui.button):
+        await interaction.response.edit_message(content="deleting")
+        await interaction.delete_original_response()
 
 
-bot = discord.ext.commands.AutoShardedBot(
-    command_prefix="!cp ", intents=discord.Intents.all())
+class View(discord.ui.View):
+    def __init__(self, rank=None, homestate=None, embed=None, category=None, originalmsg=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.branches = []
+        self.seatType = None
+        self.collegeTypes = None
+        self.homestate = homestate
+        self.rank = rank
+        self.embed = embed
+        self.category = category
+        self.originalMessage = originalmsg
 
+    @discord.ui.select(
+        placeholder="Select the type of Institute",
+        options=[
+            SelectOption(label='National Institute of Technology'),
+            SelectOption(
+                label='Indian Institute of Information Technology'),
+            SelectOption(label='Government Funded Technical Institutions')
+        ],
+        min_values=0,
+        max_values=3,
+        custom_id="clgtyp"
+    )
+    async def clgtype(self, interaction: discord.Interaction, select: discord.ui.select):
+        self.collegeTypes = interaction.data
+        self.embed.add_field(name="Type", value=list(
+            self.collegeTypes.values())[0])
+        select.disabled = True
+        await interaction.response.edit_message(embed=self.embed, view=self)
 
-@bot.command()
-async def test(ctx):
-    await ctx.send(f"Alive!\nPing: {bot.latency*1000}")
+    @discord.ui.select(
+        placeholder="Branch Type 1",
+        min_values=0,
+        max_values=23,
+        options=[
 
+            SelectOption(label="Aerospace"),
+            SelectOption(label="Agricultural"),
+            SelectOption(label="Architecture"),
+            SelectOption(label="AI"),
+            SelectOption(label="Biomedical"),
+            SelectOption(label="Biotechnology"),
+            SelectOption(label="Textile Technology"),
+            SelectOption(label="Ceramic"),
+            SelectOption(label="Chemical"),
+            SelectOption(label="Chemistry(Bsc/Msc)"),
+            SelectOption(label="Civil"),
+            SelectOption(label="Computational"),
+            SelectOption(label="CSE"),
+            SelectOption(label="EEE"),
+            SelectOption(label="Instrumentation"),
+            SelectOption(label="Electrical"),
+            SelectOption(label="ECE"),
+            SelectOption(label="Electronics"),
+            SelectOption(label="Energy"),
+            SelectOption(label="Engineering Physics"),
+            SelectOption(label="Food Process Engineering"),
+            SelectOption(label="Industrial Production"),
+            SelectOption(label="Industrial"),
+            SelectOption(label="IT")
 
-@bot.command()
-@commands.guild_only()
-@commands.is_owner()
-async def sync(
-        ctx: Context, guilds: Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
-    dt_started = datetime.datetime.utcnow()
-    if not guilds:
-        if spec == "~":
-            synced = await ctx.bot.tree.sync(guild=ctx.guild)
-        elif spec == "*":
-            ctx.bot.tree.copy_global_to(guild=ctx.guild)
-            synced = await ctx.bot.tree.sync(guild=ctx.guild)
-        elif spec == "^":
-            ctx.bot.tree.clear_commands(guild=ctx.guild)
-            await ctx.bot.tree.sync(guild=ctx.guild)
-            synced = []
-        else:
-            synced = await ctx.bot.tree.sync()
-        dt_ended = datetime.datetime.utcnow()
-        await ctx.send(
-            f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild'} in {(dt_ended - dt_started).total_seconds()} seconds!"
-        )
-        return
+        ],
+        custom_id="b_type_1"
 
-    ret = 0
-    for guild in guilds:
+    )
+    async def branch_1(self, interaction: discord.Interaction, select: discord.ui.select):
+        # to get the select options, you can use interaction.data
+        self.branches = interaction.data
+        select.disabled = True
+        self.embed.add_field(
+            name="Branches", value=list(self.branches.values())[0])
+        await interaction.response.edit_message(embed=self.embed, view=self)
+
+    @discord.ui.select(
+        placeholder="Branch Type 2",
+        min_values=0,
+        max_values=13,
+        options=[
+            SelectOption(
+                label="Integrated B. Tech.(IT) and M. Tech(IT)(5 Years, Integrated B. Tech. and M. Tech.)"),
+            SelectOption(
+                label="Integrated B. Tech.(IT) and MBA(5 Years, Integrated B. Tech. and MBA)"),
+            SelectOption(label="Life Science"),
+            SelectOption(label="Material Science"),
+            SelectOption(label="Mathematics and Computing"),
+            SelectOption(label="ME"),
+            SelectOption(label="Mechatronics"),
+            SelectOption(label="Metallurgy"),
+            SelectOption(label="Mining"),
+            SelectOption(label="Physics(Bsc/Msc)"),
+            SelectOption(label="Planning"),
+            SelectOption(label="Production"),
+            SelectOption(
+                label="Quantitative Economics & Data Science(5 Years, Integrated Master of Science)"),
+            SelectOption(
+                label="Smart Manufacturing(4 Years, Bachelor of Technology)")
+        ],
+        custom_id="b_type_2"
+    )
+    async def branch_2(self, interaction: discord.Interaction, select: discord.ui.select):
+        # to get the select options, you can use interaction.data
+        self.branches = interaction.data
+        select.disabled = True
+        self.embed.add_field(
+            name="Branches", value=list(self.branches.values())[0])
+        await interaction.response.edit_message(embed=self.embed, view=self)
+
+    def selected_branches(self):
         try:
-            await ctx.bot.tree.sync(guild=guild)
-        except discord.HTTPException:
-            pass
+            return list(self.branches.values())[0] if self.branches is not None else None
+
+        except:
+            return None
+
+    def collegetypes(self):
+        try:
+            return list(self.collegeTypes.values())[0] if self.collegeTypes is not None else None
+
+        except:
+            return None
+
+    @discord.ui.button(label='Submit', style=discord.ButtonStyle.green, custom_id='persistent_view:submit')
+    async def submit(self, interaction: discord.Interaction, button: discord.ui.Button):
+        data = {
+            "rank": self.rank,
+            "type": self.collegetypes(),
+            "gender": self.seatType.name if self.seatType is not None else 'Gender-Neutral',
+            "state": self.homestate.name,
+            "category": self.category.name if self.category is not None else "OPEN",
+            "branches": self.selected_branches()
+        }
+        print(data)
+
+        clgs = filter(data)
+        # clgs = []
+
+        cmap = {}
+
+        for clg in clgs:
+            if clg['institute'] in list(cmap.keys()):
+                cmap[clg["institute"]].append(
+                    tuple((clg["program"], f"{clg['openingRank']} - {clg['closingRank']}")))
+
+            else:
+                cmap[clg["institute"]] = [tuple(
+                    (clg["program"], f"{clg['openingRank']} - {clg['closingRank']}", clg['programLabel']))]
+
+        embeds = \
+            discord.Embed(
+                title=f"Available Colleges ({len(cmap.items())})",
+                description=f"**Filters Applied**\n" +
+                f"rank: {self.rank}\n" +
+                (f"type: {self.collegetypes()}\n" if self.collegeTypes is not None else "") +
+                f"homestate: {self.homestate.name}\n" +
+                f"category: {self.category.name if self.category is not None else 'OPEN'}\n" +
+                f"Seat Type: {self.seatType.name if self.seatType is not None else 'Gender-Neutral'}\n" +
+                (f"branches: {self.selected_branches()}" if self.branches is not None else "")
+
+            )
+        if len(cmap.keys()) == 0:
+            await interaction.response.edit_message(content="deleting")
+            await interaction.delete_original_response()
+            x = await interaction.user.send(content=f"<@{interaction.user.id}> Bhai, No colleges :pensive:")
+
+            return
+        if len(cmap.keys()) <= 25:
+            await interaction.response.edit_message(content="deleting")
+            await interaction.delete_original_response()
+            y = await interaction.user.send(content=f"<@{interaction.user.id}>", view=CollegeView(cmap=cmap), embed=embeds)
+            x = await interaction.channel.send(content=f"<@{interaction.user.id}>, please check your DM for full list!")
+            await asyncio.sleep(25)
+            # 3 minutes delay.
+            await x.delete()
+            await asyncio.sleep(60)
+            await y.delete()
+
         else:
-            ret += 1
+            await interaction.response.edit_message(content="deleting")
+            await interaction.delete_original_response()
+            x = await interaction.channel.send(content=f"<@{interaction.user.id}>, please check your DM for full list!")
 
-    await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+            for college in cmap.keys():
+                embed = discord.Embed(title=college)
+                for branch in cmap.get(college):
+                    embed.add_field(
+                        name=branch[0], value=f"cutoff : {branch[1]}")
+                await interaction.user.send(embed=embed)
+                await asyncio.sleep(0.5)
+            await asyncio.sleep(10)
+            await x.delete()
 
-
-@bot.event
-async def on_ready():
-    print("All Ready!")
-    chan = bot.get_channel(1098658755102642226)
-    m = await chan.send("Ready")
-    try:
-        await bot.tree.sync()
-        m1 = await chan.send(f'Synced')
-    except Exception as e:
-        await chan.send("Failed to sync on ready!")
-        await chan.send(traceback_maker(e))
-    else:
-        await m.delete()
-        await m1.delete()
-
-#    button_message = await bot.fetch_message()
-
-
-fields = \
-    """
-**Percentile [choice]** - Your overall NTA score
-**Rank [choice]** - Your OPEN/SC/ST/OBC/EWS/PWD Category Rank
-**Type of Seat** - Your Gender
-**Home State** - The state you live in according to application
-**Category** - OPEN/SC/ST/OBC/ETC... 
-**Branch** - Your branch preference (multi-options)
-"""
-
-
-@bot.command()
-async def create_message(ctx):
-    m = await ctx.send("creating message please wait~")
-    dt_started = datetime.datetime.utcnow()
-    embed = discord.Embed(title="College Predictor",
-                          description="Enter your details to know your college!")
-    embed.add_field(
-        name="USAGE", value="Fill the required details in to get your predicted college using percentile/rank")
-    embed.add_field(name="Fields", value=fields, inline=False)
-    await ctx.send(embed=embed)
-
-    dt_ended = datetime.datetime.utcnow()
-    x = await ctx.send(f"created and added message to cache in {(dt_ended - dt_started).total_seconds()} seconds!")
-    await asyncio.sleep(2)
-    await x.delete()
-    await m.delete()
 
 @bot.tree.command(name="predict_college", description="Know the colleges you can get for your percentile")
 @app_commands.choices(
-    seattype=[
-        Choice(name=gender['choices'][0]['label'], value=1),
-        Choice(name=gender['choices'][1]['label'], value=2)
-    ],
     homestate=[
         Choice(name='Andhra Pradesh', value=0),
         Choice(name='Arunachal Pradesh', value=1),
@@ -225,176 +357,195 @@ async def create_message(ctx):
         Choice(name='EWS (PwD)', value=7),
         Choice(name='SC (PwD)', value=8),
         Choice(name='ST (PwD)', value=9)
-    ],
-    collegetype=[
-        Choice(name='National Institute of Technology', value=0),
-        Choice(name='Indian Institute of Information Technology', value=1),
-        Choice(name='Government Funded Technical Institutions', value=2)
     ]
 )
+@app_commands.checks.cooldown(3, 600, key=lambda i: (i.guild_id, i.user.id))
 async def predict_college(
     interaction: discord.Interaction,
     percentile: Optional[float],
     rank: Optional[int],
-    collegetype: Optional[Choice[int]],
     category: Optional[Choice[int]],
-    seattype: Choice[int],
     homestate: Optional[Choice[int]],
     homestate2: Optional[Choice[int]]
 
 ) -> None:
-    await interaction.response.defer()
-    warnings = []
-    abranches = None
+
     if percentile is None and rank is None:
-        await interaction.response.send_message("You need to specify atleast one ranking parameter!")
+        x = await interaction.response.send_message("You need to specify atleast one ranking parameter!")
+        await asyncio.sleep(20)
+        await x.delete()
         return
     if homestate is None and homestate2 is None:
-        await interaction.response.send_message("No homestate specified!")
+        x = await interaction.response.send_message("No homestate specified!")
+        await asyncio.sleep(20)
+        await x.delete()
         return
+    if homestate is not None and homestate2 is not None:
+        x = await interaction.response.send_message("You can only have one homestate :rolling_eyes:")
+        await asyncio.sleep(20)
+        await x.delete()
+        return
+
     if percentile:
         if percentile > 100 or percentile < 0:
-            await interaction.response.send_message("Enter a valid percentile!")
+            await asyncio.sleep(20)
+            x = await interaction.response.send_message("Enter a valid percentile!")
+            await x.delete()
+            return
+        if category is not None and category.name != "OPEN":
+            x = await interaction.response.send_message(f"<@{interaction.user.id}> Percentile is not applicable for your selected category! Retry again with your category rank or use OPEN category")
+            await asyncio.sleep(20)
+            await x.delete()
             return
         rank = round(((100-percentile) * 905590)/100, 0)
 
-    data = {
-        "rank": rank,
-        "type": collegetype.name if collegetype is not None else None,
-        "gender": seattype.name if seattype else gender['choices'][0]['value'],
-        "state": homestate.name if homestate else homestate2.name,
-        "category": category.name if category else "OPEN",
-        "branches": []
-    }
-    print(data)
+    emb = discord.Embed(
+        title="Select Your information", description="This information is optional, click submit if you don't wish to filter colleges by College Type and Branch Type"
 
-    clgs = filter(data)
-
-    cmap = {}
-
-    for clg in clgs:
-        if clg in cmap.items():
-            cmap[clg["institute"]].append(
-                tuple((clg["program"], f"{clg['openingRank']} - {clg['closingRank']}")))
-        else:
-            cmap[clg["institute"]] = [clg['state'],
-                                      tuple((clg["program"], f"{clg['openingRank']} - {clg['closingRank']}", clg['programLabel']))]
-    embeds = [discord.Embed(title=f"Available Colleges ({len(cmap.items())})",
-                            description=f"**Filters Applied**\nrank: {rank}\n" +
-                            (f"type: {collegetype.name}\n" if collegetype is not None else "") +
-                            f"homestate: {homestate.name if homestate else homestate2}\n" +
-                            f"category: {category.name if category is not None else 'OPEN'}\n" +
-                            # +
-                            f"Seat Type: {seattype.name if seattype is not None else 'Gender-Neutral'}\n"
-                            # (f"branches: {branches}" if branches is not None else "")
-
-                            )]
-    for college in cmap:
-        vals = ""
-        embed = discord.Embed(title=f"{college} - {cmap[college][0]}")
-        del cmap[college][0]
-        for p in cmap.get(college):
-            embed.add_field(name=p[0], value=p[1]+"\n"+p[2])
-
-        embeds.append(embed)
-
-
-
-class FindCollege():
-    def __init__(self):
-        super().__init__()
-
-        self.seattype = discord.ui.Select(
-            
-            placeholder=gender['choices'][0]['label'],
-            options=[
-                SelectOption(label=gender['choices']
-                             [0]['label'], default=True),
-                SelectOption(label=gender['choices'][1]['label'])]
-        )
-
-        self.collegetype = discord.ui.Select(
-            options=[
-                SelectOption(label='National Institute of Technology'),
-                SelectOption(
-                    label='Indian Institute of Information Technology'),
-                SelectOption(label='Government Funded Technical Institutions')
-            ],
-            min_values=0,
-            max_values=2
-        )
-
-        self.branch_type_1 = discord.ui.Select(
-            placeholder="Branch Type 1",
-            min_values=0,
-            max_values=23,
-            options=[
-
-                SelectOption(label="Aerospace"),
-                SelectOption(label="Agricultural"),
-                SelectOption(label="Architecture"),
-                SelectOption(label="AI"),
-                SelectOption(label="Biomedical"),
-                SelectOption(label="Biotechnology"),
-                SelectOption(label="Textile Technology"),
-                SelectOption(label="Ceramic"),
-                SelectOption(label="Chemical"),
-                SelectOption(label="Chemistry(Bsc/Msc)"),
-                SelectOption(label="Civil"),
-                SelectOption(label="Computational"),
-                SelectOption(label="CSE"),
-                SelectOption(label="EEE"),
-                SelectOption(label="Instrumentation"),
-                SelectOption(label="Electrical"),
-                SelectOption(label="ECE"),
-                SelectOption(label="Electronics"),
-                SelectOption(label="Energy"),
-                SelectOption(label="Engineering Physics"),
-                SelectOption(label="Food Process Engineering"),
-                SelectOption(label="Industrial Production"),
-                SelectOption(label="Industrial"),
-                SelectOption(label="IT")
-
-            ]
-        )
-        self.branch_type_2 = discord.ui.Select(
-            placeholder="Branch Type 2",
-            min_values=0,
-            max_values=13,
-            options=[
-                SelectOption(label="Integrated B. Tech.(IT) and M. Tech(IT)(5 Years, Integrated B. Tech. and M. Tech.)"),
-                SelectOption(label="Integrated B. Tech.(IT) and MBA(5 Years, Integrated B. Tech. and MBA)"),
-                SelectOption(label="Life Science"),
-                SelectOption(label="Material Science"),
-                SelectOption(label="Mathematics and Computing"),
-                SelectOption(label="ME"),
-                SelectOption(label="Mechatronics"),
-                SelectOption(label="Metallurgy"),
-                SelectOption(label="Mining"),
-                SelectOption(label="Physics(Bsc/Msc)"),
-                SelectOption(label="Planning"),
-                SelectOption(label="Production"),
-                SelectOption(label="Quantitative Economics & Data Science(5 Years, Integrated Master of Science)"),
-                SelectOption(label="Smart Manufacturing(4 Years, Bachelor of Technology)")
-            ]
+    )
+    emb.add_field(name="Instructions",
+                  value="Fill in your preferences and click on submit")
+    await interaction.response.send_message(
+        embed=emb,
+        view=View(
+            rank=rank,
+            homestate=homestate if homestate else homestate2,
+            category=category,
+            embed=emb,
 
         )
-        self.submit = discord.ui.Button(
-            label="Submit"
-        )
+    )
 
-        self.add_item(self.collegetype)
-        self.add_item(self.seattype)
-        self.add_item(self.branch_type_1)
-        self.add_item(self.branch_type_2)
 
-    async def on_submit(self, interaction: discord.Interaction):
-        
-        await interaction.response.send_message(text=[self.collegetype, self.branch, self.seattype])
+@predict_college.error
+async def on_predict_college_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    if isinstance(error, app_commands.CommandOnCooldown):
+        await interaction.response.send_message(str(error), ephemeral=True)
 
 
 @bot.event
 async def on_message(msg):
+    await bot.process_commands(msg)
+
+
+@bot.command()
+async def test(ctx):
+    await ctx.send(f"Alive!\nPing: {bot.latency*1000}")
+
+
+@bot.command()
+@commands.guild_only()
+@commands.is_owner()
+async def sync(
+        ctx: Context, guilds: Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
+    dt_started = datetime.datetime.utcnow()
+    if not guilds:
+        if spec == "~":
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+        elif spec == "*":
+            ctx.bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await ctx.bot.tree.sync(guild=ctx.guild)
+        elif spec == "^":
+            ctx.bot.tree.clear_commands(guild=ctx.guild)
+            await ctx.bot.tree.sync(guild=ctx.guild)
+            synced = []
+        else:
+            synced = await ctx.bot.tree.sync()
+        dt_ended = datetime.datetime.utcnow()
+        await ctx.send(
+            f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild'} in {(dt_ended - dt_started).total_seconds()} seconds!"
+        )
+        return
+
+    ret = 0
+    for guild in guilds:
+        try:
+            await ctx.bot.tree.sync(guild=guild)
+        except discord.HTTPException:
+            pass
+        else:
+            ret += 1
+
+    await ctx.send(f"Synced the tree to {ret}/{len(guilds)}.")
+
+
+@bot.command()
+@commands.is_owner()
+async def cmsg(ctx):
+    embed = discord.Embed(title="College Predictor",
+                          description="Instructions", color=discord.Color.blurple())
+    embed.add_field(
+        name="How to use",
+        value="Use Slash command and fill the details",
+        inline=False
+    )
+    embed.add_field(
+        name="Details Required",
+        value="**Homestate** - The state where you live or used while filling JEE application\n**Percentile/Rank** - Ranking Parameter\nIf you are using percentile, only OPEN category colleges can be shown",
+        inline=False
+    )
+    embed.add_field(
+        name="Optional Details",
+        value="**Category** - Your Category/Social Status\n**College Type(s)** - IIIT/NIT/GFTI\n**Branch(es)** - Filter Colleges through branch cutoffs",
+        inline=False
+    )
+    embed.add_field(
+        name="Other Info",
+        value="**homestate1** - Commonly Used states\n**homestate** - states with low population\n**Branch Type 2** is the continuation of  **Branch Type 1**\nBranches are Arranged in Alphabetical Order",
+        inline=False
+    )
+    embed.add_field(
+        name="Example",
+        value="/predict_college rank:975 homestate:Karnataka category:EWS",
+        inline=False
+    )
+    embed.set_footer(text="Data from 2021")
+    await ctx.send(embed=embed)
+    await ctx.send("The command has **10 minute** cooldown")
+
+
+@bot.event
+async def on_ready():
+    print("All Ready!")
+    chan = bot.get_channel(907344330103091290)
+    try:
+        await bot.tree.sync()
+    except Exception as e:
+        await chan.send("<@&1101035128727277688> Failed to sync on ready!")
+        await chan.send(traceback_maker(e))
+
+
+@tasks.loop(minutes=15)
+async def check_daily():
+    global dates
+    # get current time in IST
+    now = datetime.utcnow() + datetime.timedelta(hours=5.5)  # IST timezone
+    if now.hour > 0 and now.hour < 1:
+        channel = await bot.get_channe(1085983350994522202)
+        guild = await bot.object(id=899694074112639086)
+        msgid = channel.last_message_id
+        thread = guild.get_thread(msgid)
+        await thread.send(f"<&1085992069157363832>!")
+        await thread.send("Update your progress before 1 AM")
+        dates.append((now.date(), now.month()))
+
+    if now.hour > 6 and now.hour < 7:
+        channel = await bot.get_channe(1085983350994522202)
+        guild = await bot.object(id=899694074112639086)
+        # Message for creating the thread
+        init_message = await channel.send(f"{now.date()}/{now.month()}/{now.year()}")
+        thread = await init_message.create_thread(name=f"Progress", auto_archive_duration=1200, reason=f"Progress of {now.date()}/{now.month()}")
+
+
+
+@bot.event
+async def on_message(msg):
+    if msg.channel.id == 1098658755102642226:
+        if msg.author.id in [782909992864186368, 792312752916004875, 295118046312398849]:
+            pass
+        else:
+            if msg.author.bot == False:
+                await msg.delete()
     await bot.process_commands(msg)
 
 bot.run(TOKEN)
