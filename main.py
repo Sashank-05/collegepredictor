@@ -719,11 +719,11 @@ async def on_voice_state_update(member, before, after):
                     today = json.load(f)
 
                 points = data.get(str(member.id), 0)
-                if saved_date.hour == 9 and saved_date.minute <= 30 and 30 < m:  # noqa
+                if saved_date.hour == 7 and saved_date.minute <= 30 and 30 < m:  # noqa
                     data[member.id] = points + 10
                     today[str((datetime.utcnow() + timedelta(hours=5.5)).date)].append(member.id)
                     await before.channel.send(f"<@{member.id}> Your attendance was recorded and marked on time!")
-                elif saved_date.hour == 9 and saved_date.minute > 30 and m > 30:
+                elif saved_date.hour == 7 and saved_date.minute > 30 and m > 30:
                     data[member.id] = points + 7
                     today[str((datetime.utcnow() + timedelta(hours=5.5)).date)].append(member.id)
                     await before.channel.send(f"<@{member.id}> Your attendance was recorded and marked late!")
