@@ -6,34 +6,113 @@ import json
 import discord
 from discord.ext.commands import Context
 from discord.ext.commands import Greedy
-from typing import Any, Coroutine, Literal, Optional
+from typing import Literal, Optional
 import traceback
-import datetime
+from datetime import datetime
+from datetime import timedelta
 import asyncio
+
 print("File Started!")
 
 print("Imported libraries!")
 
 TOKEN = "MTA5ODY0NTY5NTk1Njc5NTQzMg.G1qy1g.QdUsTb1CuIxXP3IjCY621H8Rfm4k3ZovCVXeLc"
-bot = discord.ext.commands.AutoShardedBot(
+
+
+class bot(discord.ext.commands.AutoShardedBot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.pingdates = []
+        self.threaddates = []
+        self.counter = 0
+
+    async def setup_hook(self) -> None:
+        # start the task to run in the background
+        self.check_daily.start()
+
+    @tasks.loop(minutes=15)
+    async def check_daily(self):
+        print("CHECKING DAILY QUESTIONS")
+
+        # get current time in IST
+        now = datetime.utcnow() + timedelta(hours=5.5)  # IST timezone
+        if now.hour == 8:
+            if now.date() in self.pingdates:
+                return
+            channel = bot.get_channel(1085983350994522202)
+            guild = await bot.fetch_guild(899694074112639086)
+            print(guild)
+            msgid = [message async for message in channel.history(limit=1)][0].id
+            if ([message async for message in channel.history(limit=1)][0].created_at + timedelta(
+                    hours=5.5)).hour == now.hour + 1:
+                return
+            thread = guild.get_thread(msgid)
+            print(thread, msgid)
+            await thread.send(f"<&1085992069157363832>!")
+            await thread.send("Update your progress before 1 AM")
+            self.pingdates.append(now.date())
+        if now.hour == 8:
+            if now.date() in self.threaddates:
+                return
+            channel = bot.get_channel(1085983350994522202)
+            guild = await bot.fetch_guild(899694074112639086)
+            msg = [message async for message in channel.history(limit=1)]
+            print((msg[0].created_at + timedelta(hours=5.5)).hour, now.hour)
+            if (msg[0].created_at + timedelta(hours=5.5)).hour == now.hour:
+                return
+
+            print("Creating message thread")
+            # Message for creating the thread
+            init_message = await channel.send(f"{now.day}/{now.month}/{now.year} - Daily questions challenge")
+            thread = await init_message.create_thread(name=f"Progress", auto_archive_duration=1440,
+                                                      reason=f"Progress of {now.date}/{now.month}")
+            self.threaddates.append(now.date())
+
+    @check_daily.before_loop
+    async def before_my_task(self):
+        await self.wait_until_ready()
+
+    @tasks.loop(hours=1)
+    async def check_attendance(self):
+        now = datetime.utcnow() + timedelta(hours=5.5)
+        if now.hour == "21":
+            channel = bot.get_channel(902272304690651146)
+            await channel.send(
+                f"""# TODAYS ATTENDANCE
+                - None 
+                # LATE COMERS 
+                - None
+                """
+            )
+
+
+bot = bot(
     command_prefix=".,", intents=discord.Intents.all())
 print("Bot Created!")
 
-dates = []
-
 
 def filter(filterinp):
-    colleges = json.load(open("colleges.json", 'r'))
-    branches = json.load(open("branches.json", 'r'))
-    map = json.load(open("maps.json", 'r'))
-    state = json.load(open("state.json", 'r'))
-    type = json.load(open("type.json", 'r'))
-    gender = json.load(open("gender.json", 'r'))
-    category = json.load(open("categories.json"))
+    colleges = json.load(open("data/colleges.json", 'r'))
+    branches = json.load(open("data/branches.json", 'r'))  # noqa
+    map = json.load(open("data/maps.json", 'r'))  # noqa
+    state = json.load(open("data/state.json", 'r'))  # noqa
+    type = json.load(open("data/type.json", 'r'))  # noqa
+    gender = json.load(open("data/gender.json", 'r'))  # noqa
+    category = json.load(open("data/categories.json"))  # noqa
     college_list = []
     if filterinp["type"] is None:
         filterinp["type"] = ['Indian Institute of Information Technology',
                              'National Institute of Technology', 'Government Funded Technical Institutions']
+
+    def __div__(self, other):
+        print("ASDKJASHDLKJSLKJDS")
+        if other == "": return True  # if other is empty string, then true is always returned.
+        if other in colleges: return True  # if other is a valid college name, then true is always returned.
+        if "a" == "b":
+            for all in list("abc"):
+                print("a")
+                print("b")
+                # print("c" if "a" is not None)
 
     for college in colleges['choice']:
 
@@ -42,26 +121,28 @@ def filter(filterinp):
                 continue
             if filterinp["branches"] == None:
 
-                if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and
+                    filterinp['rank'] <= college["closingRank"]) \
                         and college['seat'] == filterinp['gender']:
-
                     college_list.append(college)
 
                 if college['state'] == filterinp['state'] and college["category"] == "HS":
-                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and
+                        filterinp['rank'] <= college["closingRank"]) \
                             and college['seat'] == filterinp['gender']:
                         college_list.append(college)
 
             elif filterinp["branches"]:
                 if college["programLabel"] in filterinp['branches']:
 
-                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and
+                        filterinp['rank'] <= college["closingRank"]) \
                             and college['seat'] == filterinp['gender']:
-
                         college_list.append(college)
 
                 if college['state'] == filterinp['state'] and college["category"] == "HS":
-                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and filterinp['rank'] <= college["closingRank"]) \
+                    if (filterinp['rank'] <= college['openingRank'] or filterinp['rank'] >= college["openingRank"] and
+                        filterinp['rank'] <= college["closingRank"]) \
                             and college['seat'] == filterinp['gender']:
                         college_list.append(college)
     return college_list
@@ -88,19 +169,21 @@ class Dropdown(discord.ui.Select):
         super().__init__(placeholder='Available Colleges',
                          min_values=1, max_values=1, options=options)
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction):
         embed = discord.Embed(
             title=self.values[0])
         for avail_branch in self.cmap.get(self.values[0]):
             print(avail_branch)
             embed.add_field(
                 name=avail_branch[0], value=f"Cutoff : {avail_branch[1]}", inline=False)
-      #  await interaction.delete_original_response()
-        await interaction.response.edit_message(content=f'<@{interaction.user.id}>', embed=embed)
+        #  await interaction.delete_original_response()
+        await interaction.response.edit_message(content=f'<@{interaction.user.id}>', embed=embed)  # noqa
 
 
 class CollegeView(discord.ui.View):
-    def __init__(self, cmap={}, interactionmsg=None, *, timeout: float = 120):
+    def __init__(self, cmap=None, interactionmsg=None, *, timeout: float = 120):
+        if cmap is None:
+            cmap = {}
         self.cmap = cmap
         self.interactionmessage = interactionmsg
         super().__init__(timeout=timeout)
@@ -108,7 +191,7 @@ class CollegeView(discord.ui.View):
 
     @discord.ui.button(label="Delete Message", style=discord.ButtonStyle.danger)
     async def dela(self, interaction: discord.Interaction, button: discord.ui.button):
-        await interaction.response.edit_message(content="deleting")
+        await interaction.response.edit_message(content="deleting")  # noqa
         await interaction.delete_original_response()
 
 
@@ -264,12 +347,12 @@ class View(discord.ui.View):
             discord.Embed(
                 title=f"Available Colleges ({len(cmap.items())})",
                 description=f"**Filters Applied**\n" +
-                f"rank: {self.rank}\n" +
-                (f"type: {self.collegetypes()}\n" if self.collegeTypes is not None else "") +
-                f"homestate: {self.homestate.name}\n" +
-                f"category: {self.category.name if self.category is not None else 'OPEN'}\n" +
-                f"Seat Type: {self.seatType.name if self.seatType is not None else 'Gender-Neutral'}\n" +
-                (f"branches: {self.selected_branches()}" if self.branches is not None else "")
+                            f"rank: {self.rank}\n" +
+                            (f"type: {self.collegetypes()}\n" if self.collegeTypes is not None else "") +
+                            f"homestate: {self.homestate.name}\n" +
+                            f"category: {self.category.name if self.category is not None else 'OPEN'}\n" +
+                            f"Seat Type: {self.seatType.name if self.seatType is not None else 'Gender-Neutral'}\n" +
+                            (f"branches: {self.selected_branches()}" if self.branches is not None else "")
 
             )
         if len(cmap.keys()) == 0:
@@ -281,7 +364,8 @@ class View(discord.ui.View):
         if len(cmap.keys()) <= 25:
             await interaction.response.edit_message(content="deleting")
             await interaction.delete_original_response()
-            y = await interaction.user.send(content=f"<@{interaction.user.id}>", view=CollegeView(cmap=cmap), embed=embeds)
+            y = await interaction.user.send(content=f"<@{interaction.user.id}>", view=CollegeView(cmap=cmap),
+                                            embed=embeds)
             x = await interaction.channel.send(content=f"<@{interaction.user.id}>, please check your DM for full list!")
             await asyncio.sleep(25)
             # 3 minutes delay.
@@ -361,15 +445,14 @@ class View(discord.ui.View):
 )
 @app_commands.checks.cooldown(3, 600, key=lambda i: (i.guild_id, i.user.id))
 async def predict_college(
-    interaction: discord.Interaction,
-    percentile: Optional[float],
-    rank: Optional[int],
-    category: Optional[Choice[int]],
-    homestate: Optional[Choice[int]],
-    homestate2: Optional[Choice[int]]
+        interaction: discord.Interaction,
+        percentile: Optional[float],
+        rank: Optional[int],
+        category: Optional[Choice[int]],
+        homestate: Optional[Choice[int]],
+        homestate2: Optional[Choice[int]]
 
 ) -> None:
-
     if percentile is None and rank is None:
         x = await interaction.response.send_message("You need to specify atleast one ranking parameter!")
         await asyncio.sleep(20)
@@ -393,14 +476,16 @@ async def predict_college(
             await x.delete()
             return
         if category is not None and category.name != "OPEN":
-            x = await interaction.response.send_message(f"<@{interaction.user.id}> Percentile is not applicable for your selected category! Retry again with your category rank or use OPEN category")
+            x = await interaction.response.send_message(
+                f"<@{interaction.user.id}> Percentile is not applicable for your selected category! Retry again with your category rank or use OPEN category")
             await asyncio.sleep(20)
             await x.delete()
             return
-        rank = round(((100-percentile) * 905590)/100, 0)
+        rank = round(((100 - percentile) * 905590) / 100, 0)
 
     emb = discord.Embed(
-        title="Select Your information", description="This information is optional, click submit if you don't wish to filter colleges by College Type and Branch Type"
+        title="Select Your information",
+        description="This information is optional, click submit if you don't wish to filter colleges by College Type and Branch Type"
 
     )
     emb.add_field(name="Instructions",
@@ -420,7 +505,7 @@ async def predict_college(
 @predict_college.error
 async def on_predict_college_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
     if isinstance(error, app_commands.CommandOnCooldown):
-        await interaction.response.send_message(str(error), ephemeral=True)
+        await interaction.channel.send(str(error), ephemeral=True)
 
 
 @bot.event
@@ -430,7 +515,7 @@ async def on_message(msg):
 
 @bot.command()
 async def test(ctx):
-    await ctx.send(f"Alive!\nPing: {bot.latency*1000}")
+    await ctx.send(f"Alive!\nPing: {bot.latency * 1000}")
 
 
 @bot.command()
@@ -438,7 +523,7 @@ async def test(ctx):
 @commands.is_owner()
 async def sync(
         ctx: Context, guilds: Greedy[discord.Object], spec: Optional[Literal["~", "*", "^"]] = None) -> None:
-    dt_started = datetime.datetime.utcnow()
+    dt_started = datetime.utcnow()
     if not guilds:
         if spec == "~":
             synced = await ctx.bot.tree.sync(guild=ctx.guild)
@@ -451,7 +536,7 @@ async def sync(
             synced = []
         else:
             synced = await ctx.bot.tree.sync()
-        dt_ended = datetime.datetime.utcnow()
+        dt_ended = datetime.utcnow()
         await ctx.send(
             f"Synced {len(synced)} commands {'globally' if spec is None else 'to the current guild'} in {(dt_ended - dt_started).total_seconds()} seconds!"
         )
@@ -481,17 +566,20 @@ async def cmsg(ctx):
     )
     embed.add_field(
         name="Details Required",
-        value="**Homestate** - The state where you live or used while filling JEE application\n**Percentile/Rank** - Ranking Parameter\nIf you are using percentile, only OPEN category colleges can be shown",
+        value="**Homestate** - The state where you live or used while filling JEE application\n**Percentile/Rank** - "
+              "Ranking Parameter\nIf you are using percentile, only OPEN category colleges can be shown",
         inline=False
     )
     embed.add_field(
         name="Optional Details",
-        value="**Category** - Your Category/Social Status\n**College Type(s)** - IIIT/NIT/GFTI\n**Branch(es)** - Filter Colleges through branch cutoffs",
+        value="**Category** - Your Category/Social Status\n**College Type(s)** - IIIT/NIT/GFTI\n**Branch(es)** - "
+              "Filter Colleges through branch cutoffs",
         inline=False
     )
     embed.add_field(
         name="Other Info",
-        value="**homestate1** - Commonly Used states\n**homestate** - states with low population\n**Branch Type 2** is the continuation of  **Branch Type 1**\nBranches are Arranged in Alphabetical Order",
+        value="**homestate1** - Commonly Used states\n**homestate** - states with low population\n**Branch Type 2** "
+              "is the continuation of  **Branch Type 1**\nBranches are Arranged in Alphabetical Order",
         inline=False
     )
     embed.add_field(
@@ -502,6 +590,50 @@ async def cmsg(ctx):
     embed.set_footer(text="Data from 2021")
     await ctx.send(embed=embed)
     await ctx.send("The command has **10 minute** cooldown")
+
+
+@bot.tree.command(name="inventory", description="check your voice points and inventory")
+async def inventory(interaction: discord.Interaction):
+    embed = discord.Embed(title=f"{interaction.user.display_name}'s Inventory")
+
+    try:
+        with open("user_data/last_credited.json", 'r') as f:
+            data = json.load(f)
+        last_points = data.get(str(interaction.user.id), 0)
+    except (FileNotFoundError, KeyError):
+        last_points = 0
+
+    try:
+        with open("user_data/user_points.json", 'r') as f:
+            points = json.load(f)
+        p = points.get(str(interaction.user.id), 0)
+    except (FileNotFoundError, KeyError):
+        p = 0
+
+    try:
+        with open("user_data/today.json", 'r') as f:
+            today = json.load(f)
+        attendance = interaction.user.id in today.get(str((datetime.utcnow() + timedelta(hours=5.5)).date()), [])
+    except (FileNotFoundError, KeyError):
+
+        attendance = False
+
+    embed.add_field(name="Attendance",
+                    value="You were present in today's morning session!" if attendance else
+                    "You were absent today! :(")
+    embed.add_field(name="Points",
+                    value=f"**Total Points** - {p}\n**Last Credited** - {last_points}")
+    embed.add_field(name="Inventory", value="You bought nothing!")
+
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.command()
+async def test_attendance(ctx):
+    with open("user_data/today.json", 'r') as f:
+        today = json.load(f)
+        date = str((datetime.utcnow() + timedelta(hours=5.5)).date)
+        print(today[date])
 
 
 @bot.event
@@ -515,37 +647,116 @@ async def on_ready():
         await chan.send(traceback_maker(e))
 
 
-@tasks.loop(minutes=15)
-async def check_daily():
-    global dates
-    # get current time in IST
-    now = datetime.utcnow() + datetime.timedelta(hours=5.5)  # IST timezone
-    if now.hour > 0 and now.hour < 1:
-        channel = await bot.get_channe(1085983350994522202)
-        guild = await bot.object(id=899694074112639086)
-        msgid = channel.last_message_id
-        thread = guild.get_thread(msgid)
-        await thread.send(f"<&1085992069157363832>!")
-        await thread.send("Update your progress before 1 AM")
-        dates.append((now.date(), now.month()))
+@bot.event
+async def on_voice_state_update(member, before, after):
+    print(member, before, after)
+    if after.channel is not None:
+        if after.channel.id in [899695200631418930, 899695342101098556, 1079429144561078363, 1122015766301134969,
+                                1122017467741511751, 1122017467741511751]:
+            with open("user_data/attendance_check.json", "r") as f:
+                data = json.load(f)
+            try:
+                saved_date = datetime.strptime(data[str(member.id)], "%Y-%m-%d %H:%M:%S.%f")
+                current_date = datetime.utcnow() + timedelta(hours=5.5)
 
-    if now.hour > 6 and now.hour < 7:
-        channel = await bot.get_channe(1085983350994522202)
-        guild = await bot.object(id=899694074112639086)
-        # Message for creating the thread
-        init_message = await channel.send(f"{now.date()}/{now.month()}/{now.year()}")
-        thread = await init_message.create_thread(name=f"Progress", auto_archive_duration=1200, reason=f"Progress of {now.date()}/{now.month()}")
+                time_difference = current_date - saved_date
 
+                days = time_difference.days
+                hours = time_difference.seconds // 3600
+                minutes = (time_difference.seconds // 60) % 60
+                seconds = time_difference.seconds % 60
+
+                if days == 0 and hours == 0 and minutes < 5:
+                    print("User returned within 5 minutes! Continuing session")
+                    with open("user_data/last_credited.json", 'r') as f:
+                        data = json.load(f)
+                    with open("user_data/user_points.json", 'r') as f:
+                        points = json.load(f)
+
+                    points[str(member.id)] = points[str(member.id)] - data[str(member.id)]
+                    await after.channel.send(
+                        f"<@{member.id}> You have returned within 5 minutes of leaving! Your session will now continue")
+
+                    return
+            except:
+                print("[i] New record created")
+
+            data[str(member.id)] = str(datetime.utcnow() + timedelta(hours=5.5))  # join time
+            print(data)
+
+            with open("user_data/attendance_check.json", 'w') as f:
+                json.dump(data, f, indent=4)
+                print(f"[i] updated attendance of {member}")
+            return
+
+    if before.channel is not None and before.channel.id in [899695200631418930, 899695342101098556, 1079429144561078363,
+                                                            1122015766301134969, 1122017467741511751,
+                                                            1122017467741511751]:
+        if after.channel is None:
+            with open("user_data/attendance_check.json", "r") as f:
+                data = json.load(f)
+
+            saved_date = datetime.strptime(data.get(str(member.id), ""), "%Y-%m-%d %H:%M:%S.%f")
+            current_date = datetime.utcnow() + timedelta(hours=5.5)
+            diff = current_date - saved_date
+
+            data[str(member.id)] = str(datetime.utcnow() + timedelta(hours=5.5))  # Update leave time
+            print(data)
+
+            with open("user_data/attendance_check.json", 'w') as f:
+                json.dump(data, f, indent=4)
+                print(f"[i] Updated leave time of {member}")
+
+            d = diff.days
+            h = diff.seconds // 3600
+            m = (diff.seconds // 60) % 60
+            print(m, d, h)
+            if d == 0 and h >= 0 and m >= 0:
+                print("IM IN")
+                with open("user_data/user_points.json", 'r') as f:
+                    data = json.load(f)
+                with open("user_data/today.json", 'r') as f:
+                    today = json.load(f)
+
+                points = data.get(str(member.id), 0)
+                if saved_date.hour == 9 and saved_date.minute <= 30 and 30 < m:  # noqa
+                    data[member.id] = points + 10
+                    today[str((datetime.utcnow() + timedelta(hours=5.5)).date)].append(member.id)
+                    await before.channel.send(f"<@{member.id}> Your attendance was recorded and marked on time!")
+                elif saved_date.hour == 9 and saved_date.minute > 30 and m > 30:
+                    data[member.id] = points + 7
+                    today[str((datetime.utcnow() + timedelta(hours=5.5)).date)].append(member.id)
+                    await before.channel.send(f"<@{member.id}> Your attendance was recorded and marked late!")
+                with open("user_data/today.json", 'w') as f:
+                    json.dump(today, f, indent=4)
+
+                data[str(member.id)] = points = points + h * 2 + m * 0.035
+
+                with open("user_data/user_points.json", 'w') as f:
+                    json.dump(data, f, indent=4)
+
+                with open("user_data/last_credited.json", 'r') as f:
+                    data = json.load(f)
+
+                data[str(member.id)] = h * 2 + m * 0.035
+
+                with open("user_data/last_credited.json", 'w') as f:
+                    json.dump(data, f, indent=4)
+
+                await before.channel.send(
+                    f"<@{member.id}> You recieved {h * 2 + m * 0.035} points in your study session! You now have {points} points.")
+                print(f"[i] Updated points of {member}")
 
 
 @bot.event
 async def on_message(msg):
     if msg.channel.id == 1098658755102642226:
-        if msg.author.id in [782909992864186368, 792312752916004875, 295118046312398849]:
+        if msg.author.id in [782909992864186368, 792312752916004875]:
             pass
         else:
-            if msg.author.bot == False:
+            if not msg.author.bot:
                 await msg.delete()
     await bot.process_commands(msg)
+
 
 bot.run(TOKEN)
