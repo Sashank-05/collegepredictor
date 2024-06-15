@@ -12,11 +12,8 @@ from datetime import datetime
 from datetime import timedelta
 import asyncio
 
-print("File Started!")
 
-print("Imported libraries!")
-
-TOKEN = "MTA5ODY0NTY5NTk1Njc5NTQzMg.G1qy1g.QdUsTb1CuIxXP3IjCY621H8Rfm4k3ZovCVXeLc"
+TOKEN = "" #
 
 
 class bot(discord.ext.commands.AutoShardedBot):
